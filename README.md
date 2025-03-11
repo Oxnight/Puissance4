@@ -16,7 +16,7 @@ Puissance 4 est une implémentation du célèbre jeu de société **Connect Four
 1. **Cloner le dépôt**  
 
   ```bash
-   git clone https://github.com/CEOS4C/puissance4.git
+   git clone https://github.com/Oxnight/puissance4.git
    cd puissance4
   ```
 
