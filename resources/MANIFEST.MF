@@ -1,0 +1,3 @@
+Implementation-Title: Puissance 4
+Implementation-Version: 1.2.0
+

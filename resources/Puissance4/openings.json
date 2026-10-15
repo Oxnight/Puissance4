@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "maximum_ply": 8,
+  "positions": 129498,
+  "bytes": 1942486,
+  "generation": "Own exhaustive enumeration of legal non-terminal positions; exact move scores queried with Pascal Pons Connect4 solver (reference tool only)."
+}

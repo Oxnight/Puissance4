@@ -1,182 +1,99 @@
-/**
- * @file Game.java
- * @brief Définition de la classe Game pour gérer la logique du jeu Puissance 4.
- */
-
 package Puissance4;
 
-import Puissance4.gui.GameWindow;
-import javax.swing.*;
-import java.util.Random;
+import java.util.ArrayList;
+import java.util.List;
 
-/**
- * @class Game
- * @brief Gère la logique du jeu Puissance 4.
- *
- * Cette classe s'occupe de la gestion des joueurs, de l'alternance des tours, 
- * de la détection de la victoire et de l'intégration de l'IA.
- */
-public class Game {
-    private Board board; ///< Plateau de jeu.
-    private Player humanPlayer; ///< Joueur humain avec le symbole 'X'.
-    private Player aiPlayer; ///< Joueur IA ou second joueur humain avec le symbole 'O'.
-    private boolean isGameOver; ///< Indique si la partie est terminée.
-    private Player currentPlayer; ///< Joueur actuellement en train de jouer.
-    private GameWindow gameWindow; ///< Fenêtre du jeu pour l'affichage.
-    private boolean isHumanVsHuman; ///< Indique si la partie est en mode Humain vs Humain.
+/** Rules and history, independent of Swing and of the search engine. */
+public final class Game {
+  public enum Mode {
+    HUMAN_VS_AI,
+    HUMAN_VS_HUMAN
+  }
 
-    /**
-     * @brief Constructeur de la classe Game.
-     * @param board Le plateau de jeu utilisé pour la partie.
-     * @param gameWindow La fenêtre du jeu pour l'affichage.
-     * @param isHumanVsHuman Indique si la partie est en mode Humain vs Humain.
-     */
-    public Game(Board board, GameWindow gameWindow, boolean isHumanVsHuman) {
-        this.board = board;
-        this.humanPlayer = new Player('X');
+  public record Move(int row, int column, char player) {}
 
-        // Si le mode est Humain vs Humain, l'adversaire est un autre joueur humain.
-        // Sinon, c'est une IA.
-        if (isHumanVsHuman) {
-            this.aiPlayer = new Player('O');
-        } else {
-            this.aiPlayer = new AIPlayer('O');
-        }
+  private final Board board = new Board();
+  private final List<Move> history = new ArrayList<>();
+  private final Mode mode;
+  private final char humanColor;
+  private char currentPlayer;
+  private char winner = ' ';
 
-        this.isGameOver = false;
-        this.currentPlayer = humanPlayer;
-        this.gameWindow = gameWindow;
-        this.isHumanVsHuman = isHumanVsHuman;
+  public Game(Mode mode, char humanColor, char startingColor) {
+    Constants.opponent(humanColor);
+    Constants.opponent(startingColor);
+    this.mode = mode;
+    this.humanColor = humanColor;
+    currentPlayer = startingColor;
+  }
 
-        // Choisir aléatoirement le joueur qui commence.
-        Random random = new Random();
-        if (random.nextBoolean()) {
-            this.currentPlayer = humanPlayer;
-        } else {
-            this.currentPlayer = aiPlayer;
-            if (!isHumanVsHuman) {
-                SwingUtilities.invokeLater(() -> aiTurn());
-            }
-        }
-    }
+  public Move play(int column) {
+    if (isGameOver()) return null;
+    int row = board.play(column, currentPlayer);
+    if (row < 0) return null;
+    Move move = new Move(row, column, currentPlayer);
+    history.add(move);
+    if (board.checkWin(currentPlayer)) winner = currentPlayer;
+    else if (!board.isFull()) currentPlayer = Constants.opponent(currentPlayer);
+    return move;
+  }
 
-    /**
-     * @brief Gère le clic sur une case du plateau.
-     * @param row La ligne où le joueur veut placer son pion.
-     * @param col La colonne où le joueur veut placer son pion.
-     */
-    public void handleCellClick(int row, int col) {
-        // Si la partie est terminée, on ne fait rien.
-        if (isGameOver) {
-            return;
-        }
+  public Move undo() {
+    if (history.isEmpty()) return null;
+    Move move = history.remove(history.size() - 1);
+    board.undo(move.column());
+    currentPlayer = move.player();
+    winner = ' ';
+    return move;
+  }
 
-        // Vérifie si le mouvement est valide
-        if (board.isValidMove(row, col)) {
-            board.placePiece(row, col, currentPlayer.getSymbol());
+  /** In solo mode, returns to the previous human decision whenever possible. */
+  public void undoHumanTurn() {
+    if (history.isEmpty()) return;
+    Move removed = undo();
+    if (mode == Mode.HUMAN_VS_AI && removed.player() != humanColor && !history.isEmpty()) undo();
+  }
 
-            // Vérifie si le joueur actuel a gagné après son coup.
-            if (board.checkWin(currentPlayer.getSymbol())) {
-                isGameOver = true;
-                return;
-            }
+  public Board getBoard() {
+    return board;
+  }
 
-            // Vérifie si le plateau est plein (match nul).
-            if (board.isFull()) {
-                isGameOver = true;
-                return;
-            }
+  public Mode getMode() {
+    return mode;
+  }
 
-            // Change de joueur.
-            switchPlayer();
-        }
-    }
+  public char getHumanColor() {
+    return humanColor;
+  }
 
-    /**
-     * @brief Effectue le tour de l'IA en mode Humain vs IA.
-     */
-    public void aiTurn() {
-        // Vérifie si la partie est terminée ou si on est en mode Humain vs Humain.
-        if (isGameOver || isHumanVsHuman) {
-            return;
-        }
+  public char getCurrentPlayer() {
+    return currentPlayer;
+  }
 
-        // Si ce n'est pas au tour de l'IA, on ne fait rien.
-        if (currentPlayer != aiPlayer) {
-            return;
-        }
+  public char getWinner() {
+    return winner;
+  }
 
-        // L'IA choisit le meilleur coup avec l'algorithme Minimax.
-        int[] aiMove = MinimaxAlgorithm.getBestMove(board);
+  public boolean isGameOver() {
+    return winner != ' ' || board.isFull();
+  }
 
-        // Vérifie si le coup proposé par l'IA est valide.
-        if (aiMove != null && aiMove[0] >= 0 && aiMove[1] >= 0) {
-            // Vérifie que la case choisie est bien vide avant de placer un pion.
-            if (board.getPiece(aiMove[0], aiMove[1]) != ' ') {
-                return;
-            }
+  public boolean isAITurn() {
+    return mode == Mode.HUMAN_VS_AI && !isGameOver() && currentPlayer != humanColor;
+  }
 
-            // L'IA joue son coup.
-            board.placePiece(aiMove[0], aiMove[1], aiPlayer.getSymbol());
+  public boolean canUndo() {
+    if (history.isEmpty()) return false;
+    return mode == Mode.HUMAN_VS_HUMAN
+        || history.size() > 1
+        || history.get(0).player() == humanColor;
+  }
 
-            // Vérifie si l'IA a gagné après son coup.
-            if (board.checkWin(aiPlayer.getSymbol())) {
-                isGameOver = true;
-            } else if (board.isFull()) {
-                isGameOver = true;
-            } else {
-                // Sinon, passe au joueur suivant.
-                switchPlayer();
-            }
-        }
+  public Move getLastMove() {
+    return history.isEmpty() ? null : history.get(history.size() - 1);
+  }
 
-        // Met à jour l'affichage du plateau après le tour de l'IA.
-        gameWindow.updateBoardDisplay();
-    }
-
-    /**
-     * @brief Vérifie si la partie est terminée.
-     * @return true si la partie est terminée, false sinon.
-     */
-    public boolean isGameOver() {
-        return isGameOver;
-    }
-
-    /**
-     * @brief Retourne le gagnant de la partie.
-     * @return Le symbole du joueur gagnant ('X' ou 'O'), ou ' ' en cas de match nul.
-     */
-    public char getWinner() {
-        if (board.checkWin(aiPlayer.getSymbol())) {
-            return aiPlayer.getSymbol();
-        } else if (board.checkWin(humanPlayer.getSymbol())) {
-            return humanPlayer.getSymbol();
-        } else {
-            return ' ';
-        }
-    }
-
-    /**
-     * @brief Obtient le joueur actuel.
-     * @return Le joueur dont c'est le tour.
-     */
-    public Player getCurrentPlayer() {
-        return currentPlayer;
-    }
-
-    /**
-     * @brief Change de joueur à la fin du tour.
-     */
-    public void switchPlayer() {
-        if (currentPlayer == humanPlayer) {
-            currentPlayer = aiPlayer;
-
-            // Si on est en mode Humain vs IA, l'IA joue automatiquement son tour.
-            if (!isHumanVsHuman) {
-                SwingUtilities.invokeLater(() -> aiTurn());
-            }
-        } else {
-            currentPlayer = humanPlayer;
-        }
-    }
+  public List<Move> getHistory() {
+    return List.copyOf(history);
+  }
 }

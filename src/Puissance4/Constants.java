@@ -1,30 +1,20 @@
-/**
- * @file Constants.java
- * @brief Définition des constantes globales pour le jeu Puissance 4.
- */
-
 package Puissance4;
 
-/**
- * @class Constants
- * @brief Classe contenant les constantes utilisées dans le jeu.
- *
- * Cette classe définit les constantes globales telles que la taille du plateau et les symboles des joueurs.
- */
-public class Constants {
+/** Dimensions and symbols of the classic game. */
+public final class Constants {
+  public static final int ROWS = 6;
+  public static final int COLUMNS = 7;
+  public static final int CONNECT = 4;
+  public static final int CAPACITY = ROWS * COLUMNS;
+  public static final char PLAYER_X = 'X'; // red
+  public static final char PLAYER_O = 'O'; // yellow
+  public static final char EMPTY = ' ';
 
-    /**
-     * @brief Taille du plateau de jeu (nombre de lignes et de colonnes).
-     *
-     * Définit la taille du plateau de jeu en nombre de cases.
-     * La valeur actuelle est 6.
-     */
-    public static final int BOARD_SIZE = 6;
+  private Constants() {}
 
-    /**
-     * @brief Symbole représentant le joueur X.
-     *
-     * Ce caractère est utilisé pour identifier les coups joués par le joueur X.
-     */
-    public static final char PLAYER_X = 'X';
+  public static char opponent(char player) {
+    if (player == PLAYER_X) return PLAYER_O;
+    if (player == PLAYER_O) return PLAYER_X;
+    throw new IllegalArgumentException("Unknown player: " + player);
+  }
 }

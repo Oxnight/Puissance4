@@ -1,0 +1,54 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile and test on Unix
+        if: runner.os != 'Windows'
+        run: bash test.sh
+      - name: Compile and test on Windows
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: test.bat
+      - name: Test Swing interface
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run -a java -ea -cp build/classes:build/tests Puissance4.GuiTests
+          xvfb-run -a java -ea -Dpuissance4.appearance=light -Dpuissance4.reducedMotion=true -cp build/classes:build/tests Puissance4.AtelierTests
+          xvfb-run -a java -ea -Dpuissance4.appearance=dark -Dpuissance4.reducedMotion=true -cp build/classes:build/tests Puissance4.AtelierTests
+      - name: Audit interface layout and keyboard
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run -a java -ea -cp build/classes:build/tests Puissance4.gui.InteractionAuditTests
+          xvfb-run -a java -ea -Dpuissance4.appearance=light -Dpuissance4.reducedMotion=true -cp build/classes:build/tests Puissance4.gui.LayoutAuditTests
+          xvfb-run -a java -ea -Dpuissance4.appearance=dark -Dpuissance4.reducedMotion=true -cp build/classes:build/tests Puissance4.gui.LayoutAuditTests
+      - name: Audit small desktop and HiDPI
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run -a -s "-screen 0 1280x720x24" java -ea -cp build/classes:build/tests Puissance4.gui.InteractionAuditTests --startup
+          xvfb-run -a -s "-screen 0 3000x2400x24" java -ea -Dsun.java2d.uiScale=2 -Dpuissance4.appearance=light -Dpuissance4.reducedMotion=true -cp build/classes:build/tests Puissance4.gui.LayoutAuditTests
+          xvfb-run -a -s "-screen 0 3000x2400x24" java -ea -Dsun.java2d.uiScale=2 -Dpuissance4.appearance=dark -Dpuissance4.reducedMotion=true -cp build/classes:build/tests Puissance4.gui.LayoutAuditTests
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Puissance4-${{ runner.os }}
+          path: dist/Puissance4.jar
